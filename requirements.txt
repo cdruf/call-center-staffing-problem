@@ -1,0 +1,10 @@
+pip
+numpy~=1.20.1
+pandas~=1.2.2
+pandas_profiling
+xlrd
+tabulate
+openpyxl
+scikit-learn~=0.24.1
+matplotlib~=3.3.4
+scipy~=1.6.1
