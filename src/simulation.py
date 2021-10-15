@@ -1,11 +1,15 @@
+"""
+Simulation of an MMC queue with reneging.
+"""
+
 from dataclasses import dataclass
 from datetime import datetime
 from functools import reduce
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import simpy
+from matplotlib import pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.stats import beta
 
@@ -54,9 +58,14 @@ def sample_time_until_renege(avg_renege_time, **kwargs):
 
 
 # %%
+"""
+# Simulation functionality
+"""
+
 
 class Customer:
     next_id = 0
+    all_customers = []
     arrival_times = []
     times_spent_in_queue_till_service = []
     times_spent_in_queue_till_renege = []
@@ -68,6 +77,7 @@ class Customer:
     @classmethod
     def reset(cls):
         Customer.next_id = 0
+        Customer.all_customers = []
         Customer.arrival_times = []
         Customer.times_spent_in_queue_till_service = []
         Customer.times_spent_in_queue_till_renege = []
@@ -81,6 +91,7 @@ class Customer:
         self.queue = queue
         self.id = Customer.next_id
         Customer.next_id += 1
+        Customer.all_customers.append(self)
         self.arrival_time = arrival_time
         self.sample_time_until_reneging_fkt = sample_time_until_reneging_fkt
         self.service_start_time = np.nan
@@ -239,12 +250,13 @@ def arrival_process(env, queue: Queue, servers: list,
 @dataclass
 class SimResult:
     """Class for keeping the simulation results."""
-    date_creates: datetime
+    date_created: datetime
     n_periods: int
     n_servers: int
     n_arrived: int
     n_served: int
     n_reneged: int
+    all_customers: list
     arrival_times: list
     times_in_queue: list
     times_in_service: list
@@ -295,6 +307,7 @@ def run_simulation(n_periods=500,
 
     return SimResult(datetime.now(), n_periods, n_servers,
                      Customer.next_id, Customer.n_served, Customer.n_renege,
+                     Customer.all_customers,
                      arrival_times, times_in_queue, times_in_service)
 
 
@@ -406,37 +419,35 @@ if __name__ == "__main__":
     run_example()
     print("Finished")
 
-# %%
-
-import sys
-
-sys.exit(0)
 
 # %%
-"""
-# Fit a curve to smooth the values
-"""
 
-df = pd.read_csv(data_folder_path / "sim_results.csv")
-df.head()
-x = df['arrival_rate'].to_numpy()
-y = df['n_servers'].to_numpy()
-plt.plot(x, y)
-params, _ = curve_fit(poly5, x, y)
-plt.plot(x, poly5(x, *params), color='red')
-plt.title("No. servers depending on customer arrival rate")
-plt.xlabel('Inter-arrival time (sec)')
-plt.ylabel('Number of servers')
-plt.tight_layout()
-plt.show()
 
-df['n_servers_smoothed'] = poly5(x, *params).round().astype(int)
-df.to_csv(data_folder_path / 'sim_results.csv', index=False)
+def fit_curve():
+    """
+    Fit a curve to smooth the values
+    """
+    df = pd.read_csv(data_folder_path / "sim_results.csv")
+    df.head()
+    x = df['arrival_rate'].to_numpy()
+    y = df['n_servers'].to_numpy()
+    plt.plot(x, y)
+    params, _ = curve_fit(poly5, x, y)
+    plt.plot(x, poly5(x, *params), color='red')
+    plt.title("No. servers depending on customer arrival rate")
+    plt.xlabel('Inter-arrival time (sec)')
+    plt.ylabel('Number of servers')
+    plt.tight_layout()
+    plt.show()
 
-# %%
-ret = optimize_number_of_agents(15)
-plt.plot(ret[1], ret[2])
-plt.title('Profit depending on number of agents with 15 sec inter-arrival time')
-plt.xlabel('Number of servers')
-plt.ylabel('Profit = revenue - workforce costs')
-plt.tight_layout()
+    df['n_servers_smoothed'] = poly5(x, *params).round().astype(int)
+    df.to_csv(data_folder_path / 'sim_results.csv', index=False)
+
+
+def optimize_staffing():
+    ret = optimize_number_of_agents(15)
+    plt.plot(ret[1], ret[2])
+    plt.title('Profit depending on number of agents with 15 sec inter-arrival time')
+    plt.xlabel('Number of servers')
+    plt.ylabel('Profit = revenue - workforce costs')
+    plt.tight_layout()
